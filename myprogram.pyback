@@ -1,0 +1,153 @@
+from weibopy3 import APIClient
+import csv
+from pathlib import Path
+import re
+import urllib.request
+
+#  import webbrowser
+#  import pdb
+
+#  try:
+#  pdb.set_trace()
+#  print("test!!!")
+APP_KEY = '1814225574'
+APP_SECRET = 'c089e38e04d4eb01acdcc4054707521b'
+CALLBACK_URL = 'https://api.weibo.com/oauth2/default.html'
+
+client = APIClient(
+    app_key=APP_KEY,
+    app_secret=APP_SECRET,
+    redirect_uri=CALLBACK_URL)
+
+#  url = client.get_authorize_url()
+#  print(url)
+#  webbrowser.open_new(url)
+#  code = input("input the code: ")
+#  r = client.request_access_token(code)
+#  print("access_token --> ", r.access_token)
+#  print("expires --> ", r.expires_in)
+#  client.set_access_token(r.access_token, r.expires_in)
+client.set_access_token('2.00vKNR4HowSmyB8a403ec34eCbqQXE', '1699329913')
+#  statuses = client.get.statuses__home_timeline()['statuses']
+statuses = client.get.statuses__user_timeline()['statuses']
+length = len(statuses)
+#  print(length)
+
+
+# check if weibo.csv exist
+my_path = Path("weibo.csv")
+if not my_path.exists():
+    with open('weibo.csv', 'w') as csvf:
+        fileHeader = ['id', 'created_at', 'screen_name', 'tweet']
+        writer = csv.writer(csvf)
+        writer.writerow(fileHeader)
+    colflag = 0
+else:   # find the last id number column
+    with open('weibo.csv', 'r') as csvf:
+        f = csv.DictReader(csvf)
+        try:
+            # length2 = len(csvf.readlines())
+            # print(">>><<<<<<<>>>:", length2)
+            column = [row['id'] for row in f]
+            #  for each in range(0, len(column)):
+            #  print(">>>>>>>>>", column[each])
+            colflag = int(column[len(column) - 1])
+        except BaseException:
+            colflag = 0
+            pass
+
+for i in range(length - 1, -1, -1):
+    #  print("--->{0},{1}".format(statuses[i]['id'], colflag))
+    #  only add new tweets
+    #  >  !!!!!
+    if statuses[i]['id'] > colflag:
+        #  print("---->NO.", i)
+        #  print("id:({0})".format(statuses[i]['id']))
+        #  print("{0} \n@{1}:{2}".format(statuses[i]['created_at'][0:19],
+        #  statuses[i]['user']['screen_name'],
+        #  statuses[i]['text']), end='')
+        #  #  print(statuses[i]['text'])
+        #  #  print("uid: -----+>", statuses[i]['user']['id'])
+        #  if statuses[i].get('retweeted_status'):
+        #  print(
+        #  "\RT:@{0}:{1}".format(
+        #  statuses[i]['retweeted_status']['user']['screen_name'],
+        #  statuses[i]['retweeted_status']['text']))
+        #  print()
+
+        #  tweetstr = "{0},{1},{2},{3}".format(statuses[i]['id'],
+        #  statuses[i]['created_at'][0:19],
+        #  statuses[i]['user']['screen_name'],
+        #  statuses[i]['text'])
+        #  if statuses[i].get('retweeted_status'):
+        #  tweetstr += "\RT@{0}:{1}".format(
+        #  statuses[i]['retweeted_status']['user']['screen_name'],
+        #  statuses[i]['retweeted_status']['text'])
+
+        #  print this tweeter's text
+        try:
+            pic = statuses[i]['original_pic']
+        except BaseException:
+            pic = ''
+            pass
+        try:
+            re_pic = statuses[i]['retweeted_status']['original_pic']
+        except BaseException:
+            re_pic = ''
+            pass
+
+        retweeter = statuses[i]['text'] + " " + pic
+        # if this is a retweet
+
+        if statuses[i].get('retweeted_status'):
+            retweeter += r"\RT@{0}:{1} {2}".format(
+                statuses[i]['retweeted_status']['user']['screen_name'],
+                statuses[i]['retweeted_status']['text'],
+                re_pic)
+
+        # splite urls from str
+        split_tweets = re.split(r'( |;|\n|\s|view:)', retweeter)
+        for j in range(0, len(split_tweets)):
+            print(j, " : ", split_tweets[j])
+            if re.match('http', split_tweets[j]):
+                # change short_url to long_url
+                try:
+                    res = urllib.request.urlopen(split_tweets[j], timeout=600)
+                    print("---->", res.geturl())
+                    split_tweets[j] = res.geturl()
+                except BaseException:
+                    pass
+
+        retweets_url_changed = ''.join(split_tweets)
+        print("Retweeter : ", retweets_url_changed)
+        #  print all info
+        add_info = (statuses[i]['id'], statuses[i]['created_at'][0:19],
+                    statuses[i]['user']['screen_name'], retweets_url_changed)
+
+        # add tweets contexts finally
+        with open('weibo.csv', 'a') as csvfw:
+            writer = csv.writer(csvfw)
+            #  writer.writerow(fileHeader)
+            writer.writerow(add_info)
+            dictf_if = csv.DictReader(csvfw)
+
+    #  with open('weibo.csv', 'a') as f:
+        #  f.write(tweetstr)
+    #  #  print(statuses[i]['text'])
+    #  #  print("uid: -----+>", statuses[i]['user']['id'])
+    #  if statuses[i].get('retweeted_status'):
+    #  print(
+    #  "\RT:@{0}:{1}".format(
+    #  statuses[i]['retweeted_status']['user']['screen_name'],
+    #  statuses[i]['retweeted_status']['text']))
+#  for each in statuses:
+    #  print(each)
+
+#  except Exception as pyOauth2Error:
+#  print(pyOauth2Error)
+
+# show the weibo.csv file
+with open('weibo.csv', 'r') as csvr:
+    fr = csv.DictReader(csvr)
+    for each in fr:
+        print(each)

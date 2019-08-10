@@ -1,0 +1,172 @@
+from weibopy3 import APIClient
+import csv
+from pathlib import Path
+import re
+import urllib.request
+
+APP_KEY = '1814225574'
+APP_SECRET = 'c089e38e04d4eb01acdcc4054707521b'
+CALLBACK_URL = 'https://api.weibo.com/oauth2/default.html'
+
+client = APIClient(
+    app_key=APP_KEY,
+    app_secret=APP_SECRET,
+    redirect_uri=CALLBACK_URL)
+client.set_access_token('2.00vKNR4HowSmyB8a403ec34eCbqQXE', '1699329913')
+#  statuses = client.get.statuses__home_timeline()['statuses']
+statuses = client.get.statuses__user_timeline()['statuses']
+length = len(statuses)
+
+#  for each in statuses:
+#  print(each)
+
+# pic[i]->{'thumbnail_pic':
+# 'http://wx1.sinaimg.cn/thumbnail/007nhdaVgy1fx24tdc3l6j3069069wed.jpg'}
+
+
+def split_tweet(retweets):
+    # split urls from str and change short url to long url.
+    split_tweets = re.split(r'( |;|\n|\s|view:)', retweets)
+    for j in range(0, len(split_tweets)):
+        #  print(j, " : ", split_tweets[j])
+        if re.match('http', split_tweets[j]):
+            # change short_url to long_url
+            try:
+                res = urllib.request.urlopen(split_tweets[j], timeout=600)
+                print("---->", res.geturl())
+                split_tweets[j] = res.geturl()
+            except BaseException:
+                pass
+
+    retweets_url_changed = ''.join(split_tweets)
+    print("Retweeter : ", retweets_url_changed)
+    #  print all info
+    add_info2 = (statuses[i]['id'], statuses[i]['created_at'][0:19],
+                 statuses[i]['user']['screen_name'], retweets_url_changed)
+    return add_info2
+
+
+def split_pic(pic_urlstr):
+    #  try:
+    a = 0
+    b = 0
+    pic_url_small1 = []
+    pic_url_small2 = []
+    pic_url = re.split(r'(/|\.|}|\')', str(pic_urlstr))
+    for i in range(0, len(pic_url)):
+        # 'large'->large pic, 'thumbnail'->small pic
+        #  print("-->", i, pic_url[i])
+        if re.match('http', pic_url[i]):
+            a = i
+        elif re.match('thumbnail', pic_url[i]):
+            pic_url[i] = 'large'
+        elif re.match('jpg', pic_url[i]):
+            b = i
+        if a != 0:
+            if i <= 15:
+                # http://wx3.sinaimg.cn/
+                pic_url_small1.append(pic_url[i])
+            elif i > 16:
+                # jump 'thumbnail'
+                # /007nhdaVgy1fx24tebfu0j30dc09xjty.jpg
+                pic_url_small2.append(pic_url[i])
+        if b != 0:
+            break
+    #  print(''.join(pic_url_small1))
+    #  print(''.join(pic_url_small2))
+    return (''.join(pic_url_small1), ''.join(pic_url_small2))
+    #  except:
+    #  print("Error of slipt_pic!")
+    # test to print the pic
+
+
+# check if weibo.csv exist
+my_path = Path("weibo.csv")
+if not my_path.exists():
+    with open('weibo.csv', 'w') as csvf:
+        fileHeader = [
+            'id',
+            'created_at',
+            'screen_name',
+            'tweet',
+            'pic1a',
+            'pic1b',
+            'pic2a',
+            'pic2b',
+            'pic3a',
+            'pic3b',
+            'pic4a',
+            'pic4b',
+            'pic5a',
+            'pic5b',
+            'pic6a',
+            'pic6b',
+            'pic7a',
+            'pic7b',
+            'pic8a',
+            'pic8b',
+            'pic9a',
+            'pic9b']
+        writer = csv.writer(csvf)
+        writer.writerow(fileHeader)
+    colflag = 0
+else:   # find the last id number column
+    with open('weibo.csv', 'r') as csvf:
+        f = csv.DictReader(csvf)
+        try:
+            column = [row['id'] for row in f]
+            colflag = int(column[len(column) - 1])
+        except BaseException:
+            colflag = 0
+            pass
+
+for i in range(length - 1, -1, -1):
+    if statuses[i]['id'] > colflag:
+        #  print the pictures of tweets
+        #  pic = []
+       # #  pic = statuses[i]['pic_urls']
+        #  try:
+        #  re_pic = statuses[i]['pic_urls']['thumbnail_pic']
+        #  except BaseException:
+        #  re_pic = ''
+        #  pass
+        print(i)
+        #  print("length:",len(pic))
+    #  try:
+        # for k in range(0, len(pic)):
+        #  print(pic[k])
+       # #  pic_a, pic_b = split_pic(pic[k])
+
+        #  print(pic)
+    #  except BaseException:
+        #  pass
+
+        #  print this tweeter's text
+        retweeter = statuses[i]['text']
+
+        # if this is a retweet
+        if statuses[i].get('retweeted_status'):
+            retweeter = ''.join(r"\RT@{0}:{1}".format(
+                statuses[i]['retweeted_status']['user']['screen_name'],
+                statuses[i]['retweeted_status']['text']))
+
+        add_info = []
+        add_info = list(split_tweet(retweeter))
+
+        pic = statuses[i]['pic_urls']
+        for k in range(0, len(pic)):
+            pic_a, pic_b = split_pic(pic[k])
+            print(pic_a)
+            print(pic_b)
+            add_info.append(pic_a)
+            add_info.append(pic_b)
+        # add tweets contexts finally
+        with open('weibo.csv', 'a') as csvfw:
+            writer = csv.writer(csvfw)
+            writer.writerow(add_info)
+            dictf_if = csv.DictReader(csvfw)
+
+with open('weibo.csv', 'r') as csvr:
+    fr = csv.DictReader(csvr)
+    for each in fr:
+        print(each)
